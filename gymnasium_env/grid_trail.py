@@ -110,7 +110,7 @@ class GridTrailRenderEnv(gym.Env):
             self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
 
         # observations for all agents
-        observations = [self._get_obs(i) for i in range(self.num_agents)]
+        observations = tuple(self._get_obs(i) for i in range(self.num_agents))
         info = self._get_info()
 
         if self.render_mode == "human":
@@ -119,11 +119,12 @@ class GridTrailRenderEnv(gym.Env):
         return observations, info
 
     def step(self, actions):
+
         assert len(actions) == self.num_agents, "Must provide actions for all agents"
 
         # update each agent position
         for i, action in enumerate(actions):
-            direction = self._action_to_direction[action]
+            direction = self._action_to_direction[int(action)]
             self._agent_locations[i] = np.clip(
                 self._agent_locations[i] + direction, 0, self.size - 1
             )
@@ -148,9 +149,9 @@ class GridTrailRenderEnv(gym.Env):
             np.array_equal(loc, self._target_location) for loc in self._agent_locations
         )
         truncated = False
-        reward = [1.0 if np.array_equal(loc, self._target_location) else 0.0
-                  for loc in self._agent_locations]
-        observations = [self._get_obs(i) for i in range(self.num_agents)]
+        # Compute shared reward (1.0 if any agent reaches target, else 0.0)
+        reward = 1.0 if terminated else 0.0
+        observations = tuple(self._get_obs(i) for i in range(self.num_agents))
         info = self._get_info()
 
         if self.render_mode == "human":
