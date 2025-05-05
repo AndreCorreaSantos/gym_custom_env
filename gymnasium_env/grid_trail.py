@@ -1,39 +1,29 @@
 from typing import Optional
 import numpy as np
 import gymnasium as gym
-
 import pygame
 
-#
-# Codigo baseado no exemplo disponivel em: 
-# https://gymnasium.farama.org/introduction/create_custom_env/
-#
-
 class GridTrailRenderEnv(gym.Env):
-
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size: int = 10):
-        # The size of the square grid
+    def __init__(self, render_mode=None, size: int = 10, num_agents: int = 4, trail_lifetime: int = 50):
         self.size = size
-        self.window_size = 512
+        self.window_size = 1000
+        self.num_agents = num_agents
+        self.trail_lifetime = trail_lifetime  # Number of steps before trail disappears
 
-        # Define the agent and target location; randomly chosen in `reset` and updated in `step`
-        self._agent_location = np.array([-1, -1], dtype=np.int32)
+        # Store multiple agents' locations
+        self._agent_locations = [np.array([-1, -1], dtype=np.int32) for _ in range(num_agents)]
         self._target_location = np.array([-1, -1], dtype=np.int32)
 
-        # Observations are dictionaries with the agent's and the target's location.
-        # Each location is encoded as an element of {0, ..., `size`-1}^2
-        self.observation_space = gym.spaces.Dict(
-            {
-                "agent": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),
-                "target": gym.spaces.Box(0, size - 1, shape=(2,), dtype=int),
-            }
+        # Observation space: 5x5 grid of integers
+        # 0: empty, 1: trail, 2: other agent, 3: observing agent, 4: target
+        self.observation_space = gym.spaces.Box(
+            low=0, high=4, shape=(5, 5), dtype=np.int32
         )
 
-        # We have 4 actions, corresponding to "right", "up", "left", "down"
-        self.action_space = gym.spaces.Discrete(4)
-        # Dictionary maps the abstract actions to the directions on the grid
+        # Action space: one Discrete(4) per agent
+        self.action_space = gym.spaces.Tuple([gym.spaces.Discrete(4) for _ in range(num_agents)])
         self._action_to_direction = {
             0: np.array([1, 0]),  # right
             1: np.array([0, 1]),  # up
@@ -41,122 +31,157 @@ class GridTrailRenderEnv(gym.Env):
             3: np.array([0, -1]),  # down
         }
 
-        # List that records agent's to set the trail
-        self._trail = []
-        self.max_intensity = 10
+        self._trail = []  # List of (position, lifetime) tuples
 
         assert render_mode is None or render_mode in self.metadata["render_modes"]
         self.render_mode = render_mode
 
-        """
-        If human-rendering is used, `self.window` will be a reference
-        to the window that we draw to. `self.clock` will be a clock that is used
-        to ensure that the environment is rendered at the correct framerate in
-        human-mode. They will remain `None` until human-mode is used for the
-        first time.
-        """
         self.window = None
         self.clock = None
 
-    def _get_obs(self):
-        return {"agent": self._agent_location, "target": self._target_location}
-    
+    def _get_obs(self, agent_idx: int):
+        obs = np.zeros((5, 5), dtype=np.int32)
+
+        agent_x, agent_y = self._agent_locations[agent_idx]
+        target_x, target_y = self._target_location
+
+        # Populate the 5x5 grid
+        for i in range(5):
+            for j in range(5):
+                # map local 5x5 coordinates to global grid coordinates
+                grid_x = agent_x + (i - 2) 
+                grid_y = agent_y + (j - 2)
+
+                # Check if within grid bounds
+                if 0 <= grid_x < self.size and 0 <= grid_y < self.size:
+                    # Priority: target > observing agent > other agent > trail > empty
+                    if grid_x == target_x and grid_y == target_y:
+                        obs[i, j] = 4  # Target
+                    elif grid_x == agent_x and grid_y == agent_y:
+                        obs[i, j] = 3  # Observing agent
+                    elif any(
+                        np.array_equal([grid_x, grid_y], loc)
+                        for idx, loc in enumerate(self._agent_locations) if idx != agent_idx
+                    ):
+                        obs[i, j] = 2  # Other agent
+                    elif any(
+                        np.array_equal([grid_x, grid_y], pos) and lifetime > 0
+                        for pos, lifetime in self._trail
+                    ):
+                        obs[i, j] = 1  # Trail
+
+        return obs
+
     def _get_info(self):
+        # Get observations for each agent
+        observations = [self._get_obs(i) for i in range(self.num_agents)]
+
         return {
-            "distance": np.linalg.norm(
-                self._agent_location - self._target_location, ord=1
-            ),
-            "size": self.size
+            "distances": [
+                np.linalg.norm(loc - self._target_location, ord=1)
+                for loc in self._agent_locations
+            ],
+            "size": self.size,
+            "observations": observations  # 5x5 observation grid for each agent
         }
-    
+
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
-        # We need the following line to seed self.np_random
         super().reset(seed=seed)
 
-        # Choose the agent's location uniformly at random
-        self._agent_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-        
-        # cleaning trail
+        # randomly assign agent locations
+        self._agent_locations = [
+            self.np_random.integers(0, self.size, size=2, dtype=int)
+            for _ in range(self.num_agents)
+        ]
+        # ensure agents dont overlap
+        for i in range(self.num_agents):
+            while any(
+                np.array_equal(self._agent_locations[i], self._agent_locations[j])
+                for j in range(self.num_agents) if i != j
+            ):
+                self._agent_locations[i] = self.np_random.integers(0, self.size, size=2, dtype=int)
+
         self._trail = []
 
-        # We will sample the target's location randomly until it does not coincide with the agent's location
-        self._target_location = self._agent_location
-        while np.array_equal(self._target_location, self._agent_location):
-            self._target_location = self.np_random.integers(
-                0, self.size, size=2, dtype=int
+        # initialize target
+        self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+        while any(np.array_equal(self._target_location, loc) for loc in self._agent_locations):
+            self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+
+        # observations for all agents
+        observations = [self._get_obs(i) for i in range(self.num_agents)]
+        info = self._get_info()
+
+        if self.render_mode == "human":
+            self._render_frame()
+
+        return observations, info
+
+    def step(self, actions):
+        assert len(actions) == self.num_agents, "Must provide actions for all agents"
+
+        # update each agent position
+        for i, action in enumerate(actions):
+            direction = self._action_to_direction[action]
+            self._agent_locations[i] = np.clip(
+                self._agent_locations[i] + direction, 0, self.size - 1
             )
 
-        observation = self._get_obs()
-        info = self._get_info()
-
-        if self.render_mode == "human":
-            self._render_frame()
-
-        return observation, info
-    
-    def step(self, action):
-        # Map the action (element of {0,1,2,3}) to the direction we walk in
-        direction = self._action_to_direction[action]
-        # We use `np.clip` to make sure we don't leave the grid bounds
-        self._agent_location = np.clip(
-            self._agent_location + direction, 0, self.size - 1
-        )
-
-        # decaying previous trail
-        for i,(position,intensity) in enumerate(self._trail):
-
-            intensity -=1
-
-            self._trail[i] = (position,intensity)
-            if intensity <= 0:
+        # decay trails
+        i = 0
+        while i < len(self._trail):
+            pos, lifetime = self._trail[i]
+            lifetime -= 1
+            self._trail[i] = (pos, lifetime)
+            if lifetime <= 0:
                 self._trail.pop(i)
+            else:
+                i += 1
 
+        # add new trail positions
+        for loc in self._agent_locations:
+            self._trail.append((loc.copy(), self.trail_lifetime))
 
-        # recording new position in the trail list
-        self._trail.append((self._agent_location.copy(),10))
-
-        
-
-        # An environment is completed if and only if the agent has reached the target
-        terminated = np.array_equal(self._agent_location, self._target_location)
+        # Check termination
+        terminated = any(
+            np.array_equal(loc, self._target_location) for loc in self._agent_locations
+        )
         truncated = False
-        reward = 1 if terminated else 0  # the agent is only reached at the end of the episode
-        observation = self._get_obs()
+        reward = [1.0 if np.array_equal(loc, self._target_location) else 0.0
+                  for loc in self._agent_locations]
+        observations = [self._get_obs(i) for i in range(self.num_agents)]
         info = self._get_info()
 
         if self.render_mode == "human":
             self._render_frame()
 
-        return observation, reward, terminated, truncated, info
-    
-    
+        return observations, reward, terminated, truncated, info
+
     def render(self):
         if self.render_mode == "rgb_array":
             return self._render_frame()
-        
-
 
     def _render_frame(self):
         if self.window is None and self.render_mode == "human":
             pygame.init()
             pygame.display.init()
-            self.window = pygame.display.set_mode(
-                (self.window_size, self.window_size)
-            )
+            self.window = pygame.display.set_mode((self.window_size, self.window_size))
         if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
         canvas = pygame.Surface((self.window_size, self.window_size))
         canvas.fill((255, 255, 255))
-        pix_square_size = (
-            self.window_size / self.size
-        )  # The size of a single grid square in pixels
+        pix_square_size = self.window_size / self.size
 
-        # Draw Trail
-        for position,intensity in self._trail:
+        # Draw trail
+        for position, lifetime in self._trail:
+            t = lifetime / self.trail_lifetime  
+            red = int(0 + (255 - 0) * (1 - t))   
+            green = int(0 + (255 - 0) * (1 - t)) 
+            blue = 255                           
             pygame.draw.rect(
                 canvas,
-                (200*intensity/self.max_intensity, 200*intensity/self.max_intensity, 255*intensity/self.max_intensity),
+                (red, green, blue),
                 pygame.Rect(
                     position[0] * pix_square_size,
                     position[1] * pix_square_size,
@@ -164,7 +189,7 @@ class GridTrailRenderEnv(gym.Env):
                     pix_square_size,
                 ),
             )
-        # First we draw the target
+        # Draw target
         pygame.draw.rect(
             canvas,
             (255, 0, 0),
@@ -173,15 +198,17 @@ class GridTrailRenderEnv(gym.Env):
                 (pix_square_size, pix_square_size),
             ),
         )
-        # Now we draw the agent
-        pygame.draw.circle(
-            canvas,
-            (0, 0, 255),
-            (self._agent_location + 0.5) * pix_square_size,
-            pix_square_size / 3,
-        )
 
-        # Finally, add some gridlines
+        # Draw agents in yellow
+        for i, loc in enumerate(self._agent_locations):
+            pygame.draw.circle(
+                canvas,
+                (255, 255, 0),  # Yellow for all agents
+                (loc + 0.5) * pix_square_size,
+                pix_square_size / 3,
+            )
+
+        # Draw gridlines
         for x in range(self.size + 1):
             pygame.draw.line(
                 canvas,
@@ -199,19 +226,13 @@ class GridTrailRenderEnv(gym.Env):
             )
 
         if self.render_mode == "human":
-            # The following line copies our drawings from `canvas` to the visible window
             self.window.blit(canvas, canvas.get_rect())
             pygame.event.pump()
             pygame.display.update()
-
-            # We need to ensure that human-rendering occurs at the predefined framerate.
-            # The following line will automatically add a delay to keep the framerate stable.
             self.clock.tick(self.metadata["render_fps"])
-        else:  # rgb_array
-            return np.transpose(
-                np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2)
-            )    
-        
+        else:
+            return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
+
     def close(self):
         if self.window is not None:
             pygame.display.quit()

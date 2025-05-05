@@ -6,7 +6,7 @@ gym.register(
     entry_point=GridTrailRenderEnv,
 )
 
-env = gym.make("gymnasium_env/GridTrail-v0", render_mode="human", size=10)
+env = gym.make("gymnasium_env/GridTrail-v0", render_mode="human", size=40)
 
 (state, _) = env.reset()
 done = False

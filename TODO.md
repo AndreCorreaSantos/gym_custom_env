@@ -1,9 +1,9 @@
-### Create and draw several agents
+### Create and draw several agents --> DONE
 
-### Global trail list
+### Global trail list --> ?
 
-### Limit agent's vision
+### Limit agent's vision --> DONE
 
-### Spawn several Targets
+### Spawn several Targets --> will not do 
 
-### Train them all with ppo and cnn
+### Train them all with ppo and cnn --> must do
