@@ -11,7 +11,8 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.logger import configure
 
 import sys
-train = True if sys.argv[1] == 'train' else False
+# train = True if sys.argv[1] == 'train' else False
+train = True
 
 gym.register(
     id="gymnasium_env/GridWorld-v0",
