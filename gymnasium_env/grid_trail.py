@@ -1,6 +1,7 @@
 from typing import Optional
 import numpy as np
 import gymnasium as gym
+import gymnasium.spaces as spaces
 import pygame
 
 class GridTrailRenderEnv(gym.Env):
@@ -16,11 +17,11 @@ class GridTrailRenderEnv(gym.Env):
         self._agent_locations = [np.array([-1, -1], dtype=np.int32) for _ in range(num_agents)]
         self._target_location = np.array([-1, -1], dtype=np.int32)
 
-        # Observation space: 5x5 grid of integers
-        # 0: empty, 1: trail, 2: other agent, 3: observing agent, 4: target
-        self.observation_space = gym.spaces.Box(
+        # Observation space: Tuple of Box spaces for each agent
+        single_obs_space = spaces.Box(
             low=0, high=4, shape=(5, 5), dtype=np.int32
         )
+        self.observation_space = spaces.Tuple([single_obs_space for _ in range(num_agents)])
 
         # Action space: one Discrete(4) per agent
         self.action_space = gym.spaces.Tuple([gym.spaces.Discrete(4) for _ in range(num_agents)])
