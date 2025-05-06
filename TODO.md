@@ -1,9 +1,8 @@
-### Create and draw several agents --> DONE
+### MAKE SURE THAT THE TRAINING SCRIPT IS CORRECT:
 
-### Global trail list --> ?
+- EACH MLP HAS ACCESS TO ITS AGENT'S OBSERVATIONS
+- EACH MLP SETS ITS AGENT'S action in the action list
+- ALL MLP's get the same rewards.
+- --> they seem correct
 
-### Limit agent's vision --> DONE
-
-### Spawn several Targets --> will not do 
-
-### Train them all with ppo and cnn --> must do
+### OBSERVATIONS MUST BE A DICT, ACTIONS MUST ALSO BE A DICT TO GUARANTEE CORRECT ORDERS.X
