@@ -13,8 +13,6 @@ done = False
 steps = 0
 while not done and steps < 100:
     action = env.action_space.sample()
-    print("Action")
-    print(action)
     (next_state, reward, terminated, truncated, info) = env.step(action)
     print(f"Step: {steps}, Action: {action}, Reward: {reward}, Next State: {next_state}, Info: {info}")
     done = terminated or truncated

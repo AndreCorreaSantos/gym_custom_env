@@ -40,6 +40,7 @@ class GridTrailRenderEnv(gym.Env):
         self.window = None
         self.clock = None
 
+       
     def _get_obs(self, agent_idx: int):
         obs = np.zeros((5, 5), dtype=np.int32)
 
@@ -168,72 +169,50 @@ class GridTrailRenderEnv(gym.Env):
             pygame.init()
             pygame.display.init()
             self.window = pygame.display.set_mode((self.window_size, self.window_size))
-        if self.clock is None and self.render_mode == "human":
             self.clock = pygame.time.Clock()
 
+            # Load the image once
+            self.cell_size = self.window_size // self.size
+            self.agent_image = pygame.image.load("gymnasium_env/ant.jpg").convert_alpha()
+            self.agent_image = pygame.transform.scale(self.agent_image, (self.cell_size, self.cell_size))
+
+            self.target_img = pygame.image.load("gymnasium_env/strawberry.png")
+            self.target_img = pygame.transform.scale(self.target_img, (self.cell_size,self.cell_size))
+
+
         canvas = pygame.Surface((self.window_size, self.window_size))
-        canvas.fill((255, 255, 255))
-        pix_square_size = self.window_size / self.size
+        canvas.fill((255, 255, 255))  # White background
 
-        # Draw trail
-        for position, lifetime in self._trail:
-            t = lifetime / self.trail_lifetime  
-            red = int(0 + (255 - 0) * (1 - t))   
-            green = int(0 + (255 - 0) * (1 - t)) 
-            blue = 255                           
-            pygame.draw.rect(
-                canvas,
-                (red, green, blue),
-                pygame.Rect(
-                    position[0] * pix_square_size,
-                    position[1] * pix_square_size,
-                    pix_square_size,
-                    pix_square_size,
-                ),
-            )
-        # Draw target
-        pygame.draw.rect(
-            canvas,
-            (255, 0, 0),
-            pygame.Rect(
-                pix_square_size * self._target_location,
-                (pix_square_size, pix_square_size),
-            ),
-        )
 
-        # Draw agents in yellow
-        for i, loc in enumerate(self._agent_locations):
-            pygame.draw.circle(
-                canvas,
-                (255, 255, 0),  # Yellow for all agents
-                (loc + 0.5) * pix_square_size,
-                pix_square_size / 3,
-            )
+        # Draw grid
+        for x in range(self.size):
+            for y in range(self.size):
+                rect = pygame.Rect(x * self.cell_size, y * self.cell_size, self.cell_size, self.cell_size)
+                pygame.draw.rect(canvas, (200, 200, 200), rect, width=1)
 
-        # Draw gridlines
-        for x in range(self.size + 1):
-            pygame.draw.line(
-                canvas,
-                0,
-                (0, pix_square_size * x),
-                (self.window_size, pix_square_size * x),
-                width=3,
-            )
-            pygame.draw.line(
-                canvas,
-                0,
-                (pix_square_size * x, 0),
-                (pix_square_size * x, self.window_size),
-                width=3,
-            )
+        # Draw trail (faded color)
+        for (x, y), lifetime in self._trail:
+            if lifetime > 0:
+                color = (100, 255, 100, max(50, int(255 * lifetime / self.trail_lifetime)))
+                s = pygame.Surface((self.cell_size, self.cell_size), pygame.SRCALPHA)
+                s.fill(color)
+                canvas.blit(s, (x * self.cell_size, y * self.cell_size))
+
+        # Draw target (red square)
+        tx, ty = self._target_location
+        canvas.blit(self.target_img, (tx*self.cell_size, ty*self.cell_size))
+
+        # Draw agents using image
+        for loc in self._agent_locations:
+            x, y = loc
+            canvas.blit(self.agent_image, (x * self.cell_size, y * self.cell_size))
 
         if self.render_mode == "human":
-            self.window.blit(canvas, canvas.get_rect())
-            pygame.event.pump()
+            self.window.blit(canvas, (0, 0))
             pygame.display.update()
             self.clock.tick(self.metadata["render_fps"])
-        else:
-            return np.transpose(np.array(pygame.surfarray.pixels3d(canvas)), axes=(1, 0, 2))
+        elif self.render_mode == "rgb_array":
+            return np.transpose(pygame.surfarray.pixels3d(canvas), axes=(1, 0, 2))
 
     def close(self):
         if self.window is not None:
