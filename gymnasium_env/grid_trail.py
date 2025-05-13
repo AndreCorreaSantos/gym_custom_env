@@ -127,13 +127,13 @@ class GridTrailParallelEnv(ParallelEnv):
         # Draw trail
         for (pos, lifetime) in self._trail:
             if lifetime > 0:
-                rect = pygame.Rect(pos[0] * cell_size, pos[1] * cell_size, cell_size, cell_size)
+                rect = pygame.Rect(pos[1] * cell_size, pos[0] * cell_size, cell_size, cell_size)
                 pygame.draw.rect(self.window, (100, 100, 100), rect)
 
         # Draw target
         rect = pygame.Rect(
-            self._target_location[0] * cell_size,
             self._target_location[1] * cell_size,
+            self._target_location[0] * cell_size,
             cell_size,
             cell_size
         )
@@ -141,7 +141,7 @@ class GridTrailParallelEnv(ParallelEnv):
 
         # Draw agents
         for loc in self._agent_locations:
-            rect = pygame.Rect(loc[0] * cell_size, loc[1] * cell_size, cell_size, cell_size)
+            rect = pygame.Rect(loc[1] * cell_size, loc[0] * cell_size, cell_size, cell_size)
             pygame.draw.rect(self.window, (0, 255, 0), rect)
 
         # Optional: draw grid lines

@@ -2,7 +2,7 @@ from pettingzoo.utils import parallel_to_aec
 from gymnasium_env.grid_trail import GridTrailParallelEnv 
 import numpy as np
 
-env = GridTrailParallelEnv(render_mode="human", size=40)
+env = GridTrailParallelEnv(render_mode="human", size=40,num_agents=1)
 env.reset(seed=42)
 
 done = {agent: False for agent in env.agents}
@@ -11,13 +11,14 @@ MAX_TIMESTEPS = 500
 
 while not all(done.values()) and steps < MAX_TIMESTEPS:
     actions = {
-        agent: env.action_spaces[agent].sample()
+        agent: 0
         for agent in env.agents
         if not done[agent]
     }
     observations, rewards, terminations, truncations, infos = env.step(actions)
     env.render()
-
+    print("Observations agent_0:")
+    print(observations["agent_0"])
     print(f"\nStep: {steps}")
     for agent in env.agents:
         print(f"{agent}: Action: {actions.get(agent)}, Reward: {rewards[agent]}, Done: {terminations[agent] or truncations[agent]}")
