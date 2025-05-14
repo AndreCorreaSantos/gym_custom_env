@@ -45,10 +45,13 @@ class DeepQLearning:
             next_states = np.array([i[3] for i in batch])
             terminals = np.array([i[4] for i in batch])
 
+
             # np.squeeze(): Remove single-dimensional entries from the shape of an array.
             # Para se adequar ao input
             states = np.squeeze(states)
             next_states = np.squeeze(next_states)
+
+            # reshape the states to match the input shape of the model
 
             # usando o modelo para selecionar as melhores acoes
             next_max = np.amax(self.model.predict_on_batch(next_states), axis=1)
@@ -59,6 +62,7 @@ class DeepQLearning:
             
             # usando os q-valores para atualizar os pesos da rede
             targets_full[[indexes], [actions]] = targets
+
             self.model.fit(states, targets_full, epochs=1, verbose=0)
             
             if self.epsilon > self.epsilon_min:
@@ -81,36 +85,35 @@ class Trainer():
         # Reset the environment and flatten the initial observations
         observations = self.env.reset()
         observations = {
-            agent: np.reshape(observations[agent], (-1,))
+            agent: observations[agent]
             for agent in self.env.agents
         }
 
         while not any(done.values()) and steps < MAX_TIMESTEPS:
             # Save current state before step
-            prev_observations = observations.copy()
 
             # Select actions for each agent using reshaped input
+
             actions = {
                 agent: self.learners[agent].select_action(
                     agent,
-                    np.reshape(prev_observations[agent], (1, -1))
+                    observations[agent]
                 )
                 for agent in self.env.agents
             }
 
             # Step the environment
-            observations, rewards, terminations, truncations, infos = self.env.step(actions)
+            observations, rewards, terminations, truncations, infos = self.env.step(actions) # overwrite observations
 
-            # Flatten new observations
             observations = {
-                agent: np.reshape(observations[agent], (-1,))
+                agent:  observations[agent] 
                 for agent in self.env.agents
             }
 
             # Store experience and train
             for agent in self.env.agents:
                 self.learners[agent].experience(
-                    prev_observations[agent],   # correct old state
+                    observations[agent],   # correct old state
                     actions[agent],
                     rewards[agent],
                     observations[agent],        # correct new state

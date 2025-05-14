@@ -2,13 +2,12 @@ from typing import Optional
 import numpy as np
 import pygame
 from pettingzoo import ParallelEnv
-from pettingzoo.utils import parallel_to_aec
 from gymnasium import spaces
 
 class GridTrailParallelEnv(ParallelEnv):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=10, num_agents=4, trail_lifetime=50):
+    def __init__(self, render_mode=None, size=10, num_agents=4, trail_lifetime=50,flatten_observations=False):
         self.size = size
         self.window_size = 1000
         self._num_agents = num_agents
@@ -19,6 +18,7 @@ class GridTrailParallelEnv(ParallelEnv):
         self._agent_locations = [np.array([-1, -1], dtype=np.int32) for _ in range(num_agents)]
         self._target_location = np.array([-1, -1], dtype=np.int32)
         self._trail = []
+        self.flatten_observations = flatten_observations
 
         self._action_to_direction = {
             0: np.array([1, 0]),   # right
@@ -28,6 +28,9 @@ class GridTrailParallelEnv(ParallelEnv):
         }
 
         single_obs_space = spaces.Box(low=0, high=4, shape=(5, 5), dtype=np.int32)
+        if flatten_observations:
+            single_obs_space = spaces.Box(low=0, high=4, shape=(25,), dtype=np.int32)
+            
         single_action_space = spaces.Discrete(4)
 
         self.observation_spaces = {agent: single_obs_space for agent in self.agents}
@@ -57,6 +60,8 @@ class GridTrailParallelEnv(ParallelEnv):
                         obs[i, j] = 2
                     elif any(np.array_equal([grid_x, grid_y], pos) and lifetime > 0 for pos, lifetime in self._trail):
                         obs[i, j] = 1
+        if self.flatten_observations:
+            obs = obs.flatten()
         return obs
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):

@@ -21,7 +21,7 @@ max_steps = 500
 learning_rate = 0.001
 
 # --- Environment ---
-env = GridTrailParallelEnv(render_mode=None, size=size, num_agents=num_agents)
+env = GridTrailParallelEnv(render_mode=None, size=size, num_agents=num_agents,flatten_observations=True)
 env.reset()
 
 # Sample agent name
