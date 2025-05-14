@@ -4,6 +4,9 @@ import pygame
 from pettingzoo import ParallelEnv
 from gymnasium import spaces
 
+
+# NOTE TO SELF, MAYBE CHANGE OBS SPACE TO FLOAT
+## ALSO, MAYBE CHANGE THE MODEL OUTPUT LAYER TO SOFTMAX
 class GridTrailParallelEnv(ParallelEnv):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
@@ -30,7 +33,7 @@ class GridTrailParallelEnv(ParallelEnv):
         single_obs_space = spaces.Box(low=0, high=4, shape=(5, 5), dtype=np.int32)
         if flatten_observations:
             single_obs_space = spaces.Box(low=0, high=4, shape=(25,), dtype=np.int32)
-            
+
         single_action_space = spaces.Discrete(4)
 
         self.observation_spaces = {agent: single_obs_space for agent in self.agents}

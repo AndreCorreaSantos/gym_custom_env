@@ -25,8 +25,10 @@ class DeepQLearning:
         self.max_steps = max_steps
 
     def select_action(self, agent, state):
+        # print(f"state shape action: {state.shape}")
         if np.random.rand() < self.epsilon:
             return self.env.action_space(agent).sample()
+        state = np.expand_dims(state, axis=0) 
         action = self.model.predict(state, verbose=0)
         return np.argmax(action[0])
 
@@ -51,6 +53,8 @@ class DeepQLearning:
             states = np.squeeze(states)
             next_states = np.squeeze(next_states)
 
+            # print(f"states shape: {states.shape}")
+            # print(f"next_states shape: {next_states.shape}")
             # reshape the states to match the input shape of the model
 
             # usando o modelo para selecionar as melhores acoes
@@ -112,6 +116,7 @@ class Trainer():
 
             # Store experience and train
             for agent in self.env.agents:
+                print(f"training agent: {agent}")
                 self.learners[agent].experience(
                     observations[agent],   # correct old state
                     actions[agent],
@@ -120,6 +125,8 @@ class Trainer():
                     terminations[agent]
                 )
                 self.learners[agent].experience_replay()
+
+            print(f"steps: {steps}")
 
             done = {
                 agent: terminations[agent] or truncations[agent]
