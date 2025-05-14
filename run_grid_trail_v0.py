@@ -1,5 +1,4 @@
-from pettingzoo.utils import parallel_to_aec
-from gymnasium_env.grid_trail import GridTrailParallelEnv 
+from env.grid_trail import GridTrailParallelEnv 
 import numpy as np
 
 env = GridTrailParallelEnv(render_mode="human", size=40,num_agents=50)

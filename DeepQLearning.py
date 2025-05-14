@@ -24,11 +24,12 @@ class DeepQLearning:
         self.model = model
         self.max_steps = max_steps
 
-    def select_action(self, state):
+    def select_action(self, agent, state):
         if np.random.rand() < self.epsilon:
-            return random.randrange(self.env.action_space.n)
+            return self.env.action_space(agent).sample()
         action = self.model.predict(state, verbose=0)
         return np.argmax(action[0])
+
 
     # cria uma memoria longa de experiencias
     def experience(self, state, action, reward, next_state, terminal):
@@ -63,67 +64,68 @@ class DeepQLearning:
             if self.epsilon > self.epsilon_min:
                 self.epsilon *= self.epsilon_dec
 
-    def train(self):
-        rewards = []
-        for i in range(self.episodes+1):
-            (state,_) = self.env.reset()
-            state = np.reshape(state, (1, self.env.observation_space.shape[0]))
-            score = 0
-            steps = 0
-            #
-            # no caso do Cart Pole eh possivel usar a condicao de done do episodio
-            #
-            done = False
-            while not done:
-                steps += 1
-                action = self.select_action(state)
-                next_state, reward, terminal, truncated, _ = self.env.step(action)
-                if terminal or truncated or (steps>self.max_steps):
-                    done = True          
-                score += reward
-                next_state = np.reshape(next_state, (1, self.env.observation_space.shape[0]))
-                self.experience(state, action, reward, next_state, terminal)
-                state = next_state
-                self.experience_replay()
-                if done:
-                    print(f'Episódio: {i+1}/{self.episodes}. Score: {score}')
-                    break
-            rewards.append(score)
-            gc.collect()
-            keras.backend.clear_session()
 
-        return rewards
-    
-
+# receives the environment and the learners as a dictionary and fits the agents
 class Trainer():
-    def __init__ (self, env, models, gamma, epsilon, epsilon_min, epsilon_dec, episodes, batch_size, memory, max_steps):
+    def __init__ (self, env,learners):
         self.env = env
-        self.models = models
-        self.gamma = gamma
-        self.epsilon = epsilon
-        self.epsilon_min = epsilon_min
-        self.epsilon_dec = epsilon_dec
-        self.episodes = episodes
-        self.batch_size = batch_size
-        self.memory = memory
-        self.max_steps = max_steps
+        self.learners = learners
+
+
 
     def train(self):
         done = {agent: False for agent in self.env.agents}
         steps = 0
         MAX_TIMESTEPS = 500
-        observations = self.env.reset() 
+
+        # Reset the environment and flatten the initial observations
+        observations = self.env.reset()
+        observations = {
+            agent: np.reshape(observations[agent], (-1,))
+            for agent in self.env.agents
+        }
+
         while not any(done.values()) and steps < MAX_TIMESTEPS:
+            # Save current state before step
+            prev_observations = observations.copy()
+
+            # Select actions for each agent using reshaped input
             actions = {
-                # each action is the model's prediction for the agent's previous observation 
-                agent: self.models[agent].select_action(observations[agent])
+                agent: self.learners[agent].select_action(
+                    agent,
+                    np.reshape(prev_observations[agent], (1, -1))
+                )
                 for agent in self.env.agents
             }
-            observations, rewards, terminations, truncations, infos = self.env.step(actions)
-    
 
-            done = {agent: terminations[agent] or truncations[agent] for agent in self.env.agents}
+            # Step the environment
+            observations, rewards, terminations, truncations, infos = self.env.step(actions)
+
+            # Flatten new observations
+            observations = {
+                agent: np.reshape(observations[agent], (-1,))
+                for agent in self.env.agents
+            }
+
+            # Store experience and train
+            for agent in self.env.agents:
+                self.learners[agent].experience(
+                    prev_observations[agent],   # correct old state
+                    actions[agent],
+                    rewards[agent],
+                    observations[agent],        # correct new state
+                    terminations[agent]
+                )
+                self.learners[agent].experience_replay()
+
+            done = {
+                agent: terminations[agent] or truncations[agent]
+                for agent in self.env.agents
+            }
             steps += 1
 
+        # Only needed if you're hitting memory issues
+        keras.backend.clear_session()
+        gc.collect()
         self.env.close()
 
