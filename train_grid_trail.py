@@ -14,10 +14,10 @@ gamma = 0.99
 epsilon = 1.0
 epsilon_min = 0.05
 epsilon_decay = 0.995
-episodes = 500
+episodes = 1
 batch_size = 64
 memory_size = 20000
-max_steps = 500
+max_steps = 100
 learning_rate = 0.001
 
 # --- Environment ---
@@ -54,14 +54,16 @@ for agent in env.agents:
         episodes=episodes,
         batch_size=batch_size,
         memory=memory,
-        model=model,
-        max_steps=max_steps
+        model=model
     )
 
 # --- Train all agents ---
-trainer = Trainer(env=env, learners=learners)
+trainer = Trainer(env=env, learners=learners, max_steps=max_steps)
 
 for episode in range(episodes):
     print(f"\n--- Episode {episode+1}/{episodes} ---")
     print(f"reward: {0}")
     trainer.train()
+
+env.write_rewards('results/rewards.csv')
+trainer.save_models('models/')

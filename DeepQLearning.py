@@ -12,7 +12,7 @@ class DeepQLearning:
     # https://arxiv.org/abs/1312.5602
     #
 
-    def __init__(self, env, gamma, epsilon, epsilon_min, epsilon_dec, episodes, batch_size, memory, model, max_steps):
+    def __init__(self, env, gamma, epsilon, epsilon_min, epsilon_dec, episodes, batch_size, memory, model):
         self.env = env
         self.gamma = gamma
         self.epsilon = epsilon
@@ -22,7 +22,6 @@ class DeepQLearning:
         self.batch_size = batch_size
         self.memory = memory
         self.model = model
-        self.max_steps = max_steps
 
     def select_action(self, agent, state):
         # print(f"state shape action: {state.shape}")
@@ -65,6 +64,8 @@ class DeepQLearning:
             indexes = np.array([i for i in range(self.batch_size)])
             
             # usando os q-valores para atualizar os pesos da rede
+            # print(f"indexes: {indexes.shape} actions: {actions.shape} targets: {targets.shape}")
+            # print(f"targets_full: {targets_full.shape}")
             targets_full[[indexes], [actions]] = targets
 
             self.model.fit(states, targets_full, epochs=1, verbose=0)
@@ -73,18 +74,17 @@ class DeepQLearning:
                 self.epsilon *= self.epsilon_dec
 
 
-# receives the environment and the learners as a dictionary and fits the agents
+# receives the environment and the learners as a dictionary and fits one model for each agent
 class Trainer():
-    def __init__ (self, env,learners):
+    def __init__ (self, env,learners,max_steps):
         self.env = env
         self.learners = learners
-
-
+        self.max_steps = max_steps
 
     def train(self):
         done = {agent: False for agent in self.env.agents}
         steps = 0
-        MAX_TIMESTEPS = 500
+    
 
         # Reset the environment and flatten the initial observations
         observations = self.env.reset()
@@ -93,7 +93,7 @@ class Trainer():
             for agent in self.env.agents
         }
 
-        while not any(done.values()) and steps < MAX_TIMESTEPS:
+        while not any(done.values()) and steps < self.max_steps:
             # Save current state before step
 
             # Select actions for each agent using reshaped input
@@ -116,7 +116,7 @@ class Trainer():
 
             # Store experience and train
             for agent in self.env.agents:
-                print(f"training agent: {agent}")
+                # print(f"training agent: {agent}")
                 self.learners[agent].experience(
                     observations[agent],   # correct old state
                     actions[agent],
@@ -138,4 +138,10 @@ class Trainer():
         keras.backend.clear_session()
         gc.collect()
         self.env.close()
+
+    # Save models for each agent on folder at path
+    def save_models(self,path):
+        for agent in self.env.agents:
+            self.learners[agent].model.save(f"{path}{agent}.keras")
+            print(f"Model for {agent} saved at {path}{agent}.keras")
 

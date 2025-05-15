@@ -1,3 +1,4 @@
+import csv 
 from typing import Optional
 import numpy as np
 import pygame
@@ -10,7 +11,7 @@ from gymnasium import spaces
 class GridTrailParallelEnv(ParallelEnv):
     metadata = {"render_modes": ["human", "rgb_array"], "render_fps": 4}
 
-    def __init__(self, render_mode=None, size=10, num_agents=4, trail_lifetime=50,flatten_observations=False):
+    def __init__(self, render_mode=None, size=10, num_agents=4, trail_lifetime=50,flatten_observations=False,reward="v0"):
         self.size = size
         self.window_size = 1000
         self._num_agents = num_agents
@@ -18,10 +19,19 @@ class GridTrailParallelEnv(ParallelEnv):
         self.agents = [f"agent_{i}" for i in range(num_agents)]
         self.possible_agents = self.agents[:]
 
+        self.rewards = {agent: [] for agent in self.agents}
+
         self._agent_locations = [np.array([-1, -1], dtype=np.int32) for _ in range(num_agents)]
         self._target_location = np.array([-1, -1], dtype=np.int32)
         self._trail = []
         self.flatten_observations = flatten_observations
+        
+        self.r0 = False
+        self.r1 = False
+        if reward == "v0":
+            self.r0 = True
+        elif reward == "v1":
+            self.r1 = True
 
         self._action_to_direction = {
             0: np.array([1, 0]),   # right
@@ -90,7 +100,6 @@ class GridTrailParallelEnv(ParallelEnv):
         return observations
 
     def step(self, actions):
-        rewards = {agent: 0.0 for agent in self.agents}
         terminations = {agent: False for agent in self.agents}
         truncations = {agent: False for agent in self.agents}
         infos = {agent: {} for agent in self.agents}
@@ -110,14 +119,97 @@ class GridTrailParallelEnv(ParallelEnv):
         # Update trail lifetimes
         self._trail = [(pos, lifetime - 1) for pos, lifetime in self._trail if lifetime > 1]
 
-        # Rewards: +1 if agent is on target
-        for i, agent in enumerate(self.agents):
-            if np.array_equal(self._agent_locations[i], self._target_location):
-                rewards[agent] = 1.0
-                terminations[agent] = True
+        if self.r0:
+            rewards = self.reward_v0()
+        elif self.r1:
+            rewards = self.reward_v1() 
+        else:
+            raise ValueError("No reward function specified")
+
+        # write rewards to list
+        for agent in self.agents:
+            self.rewards[agent].append(rewards[agent])
 
         observations = {agent: self._get_obs(i) for i, agent in enumerate(self.agents)}
         return observations, rewards, terminations, truncations, infos
+    
+    ### first version of reward function
+    ### if agent reaches the target, all agents get a reward of 1
+    def reward_v0(self):
+        rewards = {agent: 0 for agent in self.agents}
+        for i, agent in enumerate(self.agents):
+            if np.array_equal(self._agent_locations[i], self._target_location):
+                rewards[agent] = 1
+                self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+                while any(np.array_equal(self._target_location, loc) for loc in self._agent_locations):
+                    self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+        return rewards
+    ### second version of reward function
+    ### if agent reaches the target, all agents get a reward of 100
+    ### if agent is on a trail, it subtracts 1 from the reward pool
+    ### if agent is not on a trail, it adds 1 to the reward pool
+    def reward_v1(self):
+        reward_pool = 0
+        agents_on_target = False
+
+        for loc in self._agent_locations:
+            # Check if agent is on a trail
+            on_trail = any(np.array_equal(loc, trail_pos) and lifetime > 0 for trail_pos, lifetime in self._trail)
+            if on_trail:
+                reward_pool -= 1
+            else:
+                reward_pool += 1
+
+            # Check if agent is on the target
+            if np.array_equal(loc, self._target_location):
+                agents_on_target = True
+
+        if agents_on_target:
+            return {agent: 100 for agent in self.agents}
+        else:
+            return {agent: reward_pool for agent in self.agents}
+        
+    ### third version of reward function
+    ### if agent reaches the target, it gets a reward of 100
+    ### if agent is on a trail, it subtracts 1 from the agent's reward
+    ### if agent is not on a trail, it adds 1 to the agent's reward
+    def reward_v2(self):
+        rewards = {agent: 0 for agent in self.agents}
+
+        for i, agent in enumerate(self.agents):
+            loc = self._agent_locations[i]
+
+            # Check if agent is on a trail
+            on_trail = any(np.array_equal(loc, trail_pos) and lifetime > 0 for trail_pos, lifetime in self._trail)
+            if on_trail:
+                rewards[agent] -= 1
+            else:
+                rewards[agent] += 1
+
+            # Check if agent is on the target
+            if np.array_equal(loc, self._target_location):
+                rewards[agent] += 100
+                self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+                while any(np.array_equal(self._target_location, loc) for loc in self._agent_locations):
+                    self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+
+        return rewards
+    
+    #write reward lists to csv
+    def write_rewards(self, path):
+
+        num_timesteps = len(self.rewards[self.agents[0]])
+        print(num_timesteps)
+
+        with open(path, "w+", newline="") as f:
+            writer = csv.writer(f)
+
+            writer.writerow(self.agents)
+
+            for t in range(num_timesteps):
+                row = [self.rewards[agent][t] for agent in self.agents]
+                writer.writerow(row)
+
 
     def render(self):
         if self.render_mode != "human":
