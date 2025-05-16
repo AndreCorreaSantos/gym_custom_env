@@ -3,6 +3,11 @@ import random
 from keras.activations import relu, linear
 import gc
 import keras
+from keras.models import Sequential
+from keras.layers import Dense
+from keras.optimizers import Adam
+
+
 
 class DeepQLearning:
 
@@ -145,3 +150,56 @@ class Trainer():
             self.learners[agent].model.save(f"{path}{agent}.keras")
             print(f"Model for {agent} saved at {path}{agent}.keras")
 
+
+class Evaluator():
+    def __init__(self, env, learners, max_steps,max_episodes):
+        self.max_episodes = max_episodes
+        self.env = env
+        self.learners = learners
+        self.rewards = {agent: [] for agent in env.agents}
+        self.max_steps = max_steps
+    
+    def load_models(self, path):
+        for agent in self.env.agents:
+            self.learners[agent].model = keras.models.load_model(f"{path}{agent}.keras")
+            print(f"Model for {agent} loaded from {path}{agent}.keras")
+    
+    def evaluate(self):
+        for episode in range(self.max_episodes):
+            done = {agent: False for agent in self.env.agents}
+            steps = 0
+            observations = self.env.reset()
+            observations = {
+                agent: observations[agent]
+                for agent in self.env.agents
+            }
+            while not any(done.values()) and steps < self.max_steps:
+                actions = {
+                    agent: self.learners[agent].select_action(
+                        agent,
+                        observations[agent]
+                    )
+                    for agent in self.env.agents
+                }
+                observations, rewards, terminations, truncations, infos = self.env.step(actions)
+                observations = {
+                    agent:  observations[agent] 
+                    for agent in self.env.agents
+                }
+                for agent in self.env.agents:
+                    self.rewards[agent].append(rewards[agent])
+                done = {
+                    agent: terminations[agent] or truncations[agent]
+                    for agent in self.env.agents
+                }
+                steps += 1
+
+        return self.rewards
+
+def build_model(input_dim, output_dim, learning_rate=0.001):
+    model = Sequential()
+    model.add(Dense(128, input_dim=input_dim, activation='relu'))
+    model.add(Dense(128, activation='relu'))
+    model.add(Dense(output_dim, activation='linear'))
+    model.compile(loss='mse', optimizer=Adam(learning_rate=learning_rate))
+    return model

@@ -1,11 +1,12 @@
-import numpy as np
+from DeepQLearning import DeepQLearning, Evaluator, build_model
 from collections import deque
+import numpy as np
+import pandas as pd
 from env.grid_trail import GridTrailParallelEnv
-from DeepQLearning import DeepQLearning, Trainer, build_model
 
 # --- Parameters ---
 size = 40
-num_agents = 5 
+num_agents = 5  # use 50 if your system can handle it
 gamma = 0.99
 epsilon = 1.0
 epsilon_min = 0.05
@@ -14,11 +15,11 @@ episodes = 1
 batch_size = 64
 memory_size = 20000
 max_steps = 100
+learning_rate = 0.001
 
 # --- Environment ---
 env = GridTrailParallelEnv(render_mode=None, size=size, num_agents=num_agents,flatten_observations=True)
 env.reset()
-
 # Sample agent name
 sample_agent = env.agents[0]
 input_dim = np.prod(env.observation_space(sample_agent).shape)
@@ -43,13 +44,11 @@ for agent in env.agents:
         model=model
     )
 
-# --- Train all agents ---
-trainer = Trainer(env=env, learners=learners, max_steps=max_steps)
+# --- Evaluate all agents ---
 
-for episode in range(episodes):
-    print(f"\n--- Episode {episode+1}/{episodes} ---")
-    print(f"reward: {0}")
-    trainer.train()
+evaluator = Evaluator(env=env, learners=learners, max_steps=max_steps, max_episodes=episodes);
+evaluator.load_models('models/')
+evaluator.evaluate()
 
-env.write_rewards('results/rewards.csv')
-trainer.save_models('models/')
+# Save the rewards to a CSV file
+env.write_rewards('evaluation_results/rewards.csv')
