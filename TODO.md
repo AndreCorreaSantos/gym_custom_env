@@ -1,0 +1,4 @@
+- make reward function swappable
+- write training routine that trains all agents with the different reward functions and writes the results
+- make plotting script
+- gather results in presentation and critique them.

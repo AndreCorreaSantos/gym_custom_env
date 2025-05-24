@@ -7,6 +7,8 @@ from keras.models import Sequential
 from keras.layers import Dense
 from keras.optimizers import Adam
 
+from collections import deque
+
 
 
 class DeepQLearning:
@@ -203,3 +205,30 @@ def build_model(input_dim, output_dim, learning_rate=0.001):
     model.add(Dense(output_dim, activation='linear'))
     model.compile(loss='mse', optimizer=Adam(learning_rate=learning_rate))
     return model
+
+
+
+def build_agents(env, gamma=0.99, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0.995,
+                 episodes=1, batch_size=64, memory_size=20000):
+    sample_agent = env.agents[0]
+    input_dim = np.prod(env.observation_space(sample_agent).shape)
+    print(f"Observation space shape: {input_dim}")
+    n_actions = env.action_space(sample_agent).n
+
+    learners = {}
+    for agent in env.agents:
+        model = build_model(input_dim=input_dim, output_dim=n_actions)
+        memory = deque(maxlen=memory_size)
+        learners[agent] = DeepQLearning(
+            env=env,
+            gamma=gamma,
+            epsilon=epsilon,
+            epsilon_min=epsilon_min,
+            epsilon_dec=epsilon_decay,
+            episodes=episodes,
+            batch_size=batch_size,
+            memory=memory,
+            model=model
+        )
+
+    return learners

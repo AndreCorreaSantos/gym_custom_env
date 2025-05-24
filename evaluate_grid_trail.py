@@ -46,7 +46,7 @@ for agent in env.agents:
 
 # --- Evaluate all agents ---
 
-evaluator = Evaluator(env=env, learners=learners, max_steps=max_steps, max_episodes=episodes);
+evaluator = Evaluator(env=env, learners=learners, max_steps=max_steps, max_episodes=episodes)
 evaluator.load_models('models/')
 evaluator.evaluate()
 

@@ -28,10 +28,14 @@ class GridTrailParallelEnv(ParallelEnv):
         
         self.r0 = False
         self.r1 = False
+        self.r2 = False
         if reward == "v0":
             self.r0 = True
-        elif reward == "v1":
+        if reward == "v1":
             self.r1 = True
+        if reward == "v2":
+            self.r2 = True
+        
 
         self._action_to_direction = {
             0: np.array([1, 0]),   # right
@@ -123,6 +127,8 @@ class GridTrailParallelEnv(ParallelEnv):
             rewards = self.reward_v0()
         elif self.r1:
             rewards = self.reward_v1() 
+        elif self.r2:
+            rewards = self.reward_v2()
         else:
             raise ValueError("No reward function specified")
 
