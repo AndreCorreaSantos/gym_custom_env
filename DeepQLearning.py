@@ -19,13 +19,12 @@ class DeepQLearning:
     # https://arxiv.org/abs/1312.5602
     #
 
-    def __init__(self, env, gamma, epsilon, epsilon_min, epsilon_dec, episodes, batch_size, memory, model):
+    def __init__(self, env, gamma, epsilon, epsilon_min, epsilon_dec,  batch_size, memory, model):
         self.env = env
         self.gamma = gamma
         self.epsilon = epsilon
         self.epsilon_min = epsilon_min
         self.epsilon_dec = epsilon_dec
-        self.episodes = episodes
         self.batch_size = batch_size
         self.memory = memory
         self.model = model

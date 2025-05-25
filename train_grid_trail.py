@@ -16,6 +16,28 @@ batch_size = 64
 memory_size = 20000
 max_steps = 100
 
+net_params = {
+    'size': size,
+    'num_agents': num_agents,
+    'gamma': gamma,
+    'epsilon': epsilon,
+    'epsilon_min': epsilon_min,
+    'epsilon_decay': epsilon_decay,
+    'episodes': episodes,
+    'batch_size': batch_size,
+    'memory_size': memory_size,
+    'max_steps': max_steps
+} 
+
+# --- Env Parameters ---
+
+env_params = {
+    'render_mode': None,
+    'size': size,
+    'num_agents': num_agents,
+    'flatten_observations': True,
+    'reward': None
+}
 
 os.makedirs('results', exist_ok=True)
 os.makedirs('models', exist_ok=True)
@@ -24,11 +46,10 @@ os.makedirs('models', exist_ok=True)
 for reward_function in ['v0', 'v1', 'v2']:
 
     os.makedirs(f'models/{reward_function}/', exist_ok=True)
-    env = GridTrailParallelEnv(render_mode=None, size=size, num_agents=num_agents,flatten_observations=True, reward=reward_function)
+    env_params['reward'] = reward_function
+    env = GridTrailParallelEnv(**env_params)
     env.reset()
-    learners = build_agents(env=env, gamma=gamma, epsilon=epsilon, epsilon_min=epsilon_min,
-                            epsilon_decay=epsilon_decay, episodes=episodes, batch_size=batch_size,
-                            memory_size=memory_size)
+    learners = build_agents(env=env, **net_params)
 
     trainer = Trainer(env=env, learners=learners, max_steps=max_steps)
     for episode in range(episodes):
