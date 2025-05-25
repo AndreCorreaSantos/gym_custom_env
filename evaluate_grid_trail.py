@@ -1,12 +1,11 @@
-from DeepQLearning import DeepQLearning, Evaluator, build_model
+from DeepQLearning import DeepQLearning, Evaluator, build_model, build_agents
 from collections import deque
 import numpy as np
-import pandas as pd
+import os
 from env.grid_trail import GridTrailParallelEnv
 
-# --- Parameters ---
 size = 40
-num_agents = 5  # use 50 if your system can handle it
+num_agents = 5
 gamma = 0.99
 epsilon = 1.0
 epsilon_min = 0.05
@@ -15,40 +14,19 @@ episodes = 1
 batch_size = 64
 memory_size = 20000
 max_steps = 100
-learning_rate = 0.001
 
-# --- Environment ---
-env = GridTrailParallelEnv(render_mode=None, size=size, num_agents=num_agents,flatten_observations=True)
-env.reset()
-# Sample agent name
-sample_agent = env.agents[0]
-input_dim = np.prod(env.observation_space(sample_agent).shape)
-print(f"Observation space shape: {input_dim}")
-n_actions = env.action_space(sample_agent).n
+os.makedirs('evaluation_results', exist_ok=True)
 
-# --- Create a learner per agent ---
-learners = {}
+for reward_function in ['v0', 'v1', 'v2']:
+    env = GridTrailParallelEnv(render_mode=None, size=size, num_agents=num_agents,
+                               flatten_observations=True, reward=reward_function)
+    env.reset()
 
-for agent in env.agents:
-    model = build_model(input_dim=input_dim, output_dim=n_actions)
-    memory = deque(maxlen=memory_size)
-    learners[agent] = DeepQLearning(
-        env=env,
-        gamma=gamma,
-        epsilon=epsilon,
-        epsilon_min=epsilon_min,
-        epsilon_dec=epsilon_decay,
-        episodes=episodes,
-        batch_size=batch_size,
-        memory=memory,
-        model=model
-    )
+    learners = build_agents(env=env, gamma=gamma, epsilon=epsilon, epsilon_min=epsilon_min,
+                             epsilon_decay=epsilon_decay, episodes=episodes, batch_size=batch_size,
+                             memory_size=memory_size)
 
-# --- Evaluate all agents ---
-
-evaluator = Evaluator(env=env, learners=learners, max_steps=max_steps, max_episodes=episodes)
-evaluator.load_models('models/')
-evaluator.evaluate()
-
-# Save the rewards to a CSV file
-env.write_rewards('evaluation_results/rewards.csv')
+    evaluator = Evaluator(env=env, learners=learners, max_steps=max_steps, max_episodes=episodes)
+    evaluator.load_models(f'models/{reward_function}/')
+    evaluator.evaluate()
+    env.write_rewards(f'evaluation_results/rewards_{reward_function}.csv')
