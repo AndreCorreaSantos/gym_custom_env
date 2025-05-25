@@ -87,20 +87,21 @@ class Trainer():
         self.learners = learners
         self.max_steps = max_steps
 
+
+    # Train agents in the environment for AN EPISODE
     def train(self):
-        done = {agent: False for agent in self.env.agents}
         steps = 0
-    
+        found = False 
 
         # Reset the environment and flatten the initial observations
-        observations = self.env.reset()
+        observations,cov_pct,found = self.env.reset()
+
         observations = {
             agent: observations[agent]
             for agent in self.env.agents
         }
 
-        while not any(done.values()) and steps < self.max_steps:
-            # Save current state before step
+        while not found and steps < self.max_steps:
 
             # Select actions for each agent using reshaped input
 
@@ -113,13 +114,14 @@ class Trainer():
             }
 
             # Step the environment
-            observations, rewards, terminations, truncations, infos = self.env.step(actions) # overwrite observations
+            observations, rewards, found = self.env.step(actions) # overwrite observations
 
             observations = {
                 agent:  observations[agent] 
                 for agent in self.env.agents
             }
-
+            # terminal state if the agent found the goal
+            terminal = found 
             # Store experience and train
             for agent in self.env.agents:
                 # print(f"training agent: {agent}")
@@ -128,22 +130,14 @@ class Trainer():
                     actions[agent],
                     rewards[agent],
                     observations[agent],        # correct new state
-                    terminations[agent]
+                    terminal
                 )
                 self.learners[agent].experience_replay()
 
-            print(f"steps: {steps}")
+            # print(f"steps: {steps}")
 
-            done = {
-                agent: terminations[agent] or truncations[agent]
-                for agent in self.env.agents
-            }
             steps += 1
 
-        # Only needed if you're hitting memory issues
-        keras.backend.clear_session()
-        gc.collect()
-        self.env.close()
 
     # Save models for each agent on folder at path
     def save_models(self,path):
@@ -164,42 +158,41 @@ class Evaluator():
         for agent in self.env.agents:
             self.learners[agent].model = keras.models.load_model(f"{path}{agent}.keras")
             print(f"Model for {agent} loaded from {path}{agent}.keras")
-    
+
+    # Evaluate agents in the environment for one episode 
     def evaluate(self):
-        for episode in range(self.max_episodes):
-            done = {agent: False for agent in self.env.agents}
-            steps = 0
-            observations = self.env.reset()
+        steps = 0
+        observations, cov_pct, found = self.env.reset() 
+
+        observations = {
+            agent: observations[agent]
+            for agent in self.env.agents
+        }
+
+        while not found and steps < self.max_steps:
+            actions = {
+                agent: self.learners[agent].select_action(
+                    agent,
+                    observations[agent]
+                )
+                for agent in self.env.agents
+            }
+            observations, rewards, found = self.env.step(actions)
+
             observations = {
                 agent: observations[agent]
                 for agent in self.env.agents
             }
-            while not any(done.values()) and steps < self.max_steps:
-                actions = {
-                    agent: self.learners[agent].select_action(
-                        agent,
-                        observations[agent]
-                    )
-                    for agent in self.env.agents
-                }
-                observations, rewards, terminations, truncations, infos = self.env.step(actions)
-                for agent in self.env.agents:
-                    print(f"Agent: {agent} - Observation: {observations[agent]}")
-                if self.env.render_mode == "human":
-                    self.env.render()
-                observations = {
-                    agent:  observations[agent] 
-                    for agent in self.env.agents
-                }
-                for agent in self.env.agents:
-                    self.rewards[agent].append(rewards[agent])
-                done = {
-                    agent: terminations[agent] or truncations[agent]
-                    for agent in self.env.agents
-                }
-                steps += 1
+
+            if self.env.render_mode == "human":
+                self.env.render()
+
+            for agent in self.env.agents:
+                self.rewards[agent].append(rewards[agent])
+            steps += 1
 
         return self.rewards
+
 
 def build_model(input_dim, output_dim, learning_rate=0.001):
     model = Sequential()
@@ -211,11 +204,9 @@ def build_model(input_dim, output_dim, learning_rate=0.001):
 
 
 
-def build_agents(env, gamma=0.99, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0.995,
-                 episodes=1, batch_size=64, memory_size=20000):
+def build_agents(env, gamma=0.99, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0.995,batch_size=64, memory_size=20000):
     sample_agent = env.agents[0]
     input_dim = np.prod(env.observation_space(sample_agent).shape)
-    print(f"Observation space shape: {input_dim}")
     n_actions = env.action_space(sample_agent).n
 
     learners = {}
@@ -228,7 +219,6 @@ def build_agents(env, gamma=0.99, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0
             epsilon=epsilon,
             epsilon_min=epsilon_min,
             epsilon_dec=epsilon_decay,
-            episodes=episodes,
             batch_size=batch_size,
             memory=memory,
             model=model

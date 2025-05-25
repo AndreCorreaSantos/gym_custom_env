@@ -25,6 +25,7 @@ class GridTrailParallelEnv(ParallelEnv):
         self._target_location = np.array([-1, -1], dtype=np.int32)
         self._trail = []
         self.flatten_observations = flatten_observations
+        self.found_target = False  # Track if target was found in current episode
         
         self.r0 = False
         self.r1 = False
@@ -57,6 +58,7 @@ class GridTrailParallelEnv(ParallelEnv):
         self.render_mode = render_mode
         self.window = None
         self.clock = None
+        self.area_covered = np.zeros((self.size, self.size), dtype=np.int32)
 
     def _get_obs(self, agent_idx):
         obs = np.zeros((5, 5), dtype=np.int32)
@@ -82,6 +84,15 @@ class GridTrailParallelEnv(ParallelEnv):
         return obs
 
     def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
+        # Calculate coverage percentage before reset
+        total_cells = self.size * self.size
+        covered_cells = np.sum(self.area_covered > 0)
+        coverage_percentage = (covered_cells / total_cells) * 100
+        
+        # Store whether target was found in previous episode
+        found = self.found_target
+        
+        # Reset environment
         self.agents = self.possible_agents[:]
         self.np_random = np.random.default_rng(seed)
 
@@ -99,14 +110,21 @@ class GridTrailParallelEnv(ParallelEnv):
             self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
 
         self._trail = []
+        
+        # Reset area coverage tracking and target found flag
+        self.area_covered = np.zeros((self.size, self.size), dtype=np.int32)
+        self.found_target = False
+        
+        # Mark initial agent positions as covered
+        for loc in self._agent_locations:
+            self.area_covered[loc[0], loc[1]] = 1
 
         observations = {agent: self._get_obs(i) for i, agent in enumerate(self.agents)}
-        return observations
+        
+        # Return observations, coverage percentage, and whether target was found
+        return observations, coverage_percentage, found
 
     def step(self, actions):
-        terminations = {agent: False for agent in self.agents}
-        truncations = {agent: False for agent in self.agents}
-        infos = {agent: {} for agent in self.agents}
 
         # Update positions and record trails
         new_locations = self._agent_locations[:]
@@ -119,16 +137,21 @@ class GridTrailParallelEnv(ParallelEnv):
             new_locations[i] = new_loc
 
         self._agent_locations = new_locations
+        
+        # Update area coverage - mark all new agent positions as covered
+        for loc in self._agent_locations:
+            self.area_covered[loc[0], loc[1]] = 1
 
         # Update trail lifetimes
         self._trail = [(pos, lifetime - 1) for pos, lifetime in self._trail if lifetime > 1]
-
+        # check if target was found
+        found = False
         if self.r0:
-            rewards = self.reward_v0()
+            rewards,found = self.reward_v0()
         elif self.r1:
-            rewards = self.reward_v1() 
+            rewards,found = self.reward_v1() 
         elif self.r2:
-            rewards = self.reward_v2()
+            rewards,found = self.reward_v2()
         else:
             raise ValueError("No reward function specified")
 
@@ -137,26 +160,26 @@ class GridTrailParallelEnv(ParallelEnv):
             self.rewards[agent].append(rewards[agent])
 
         observations = {agent: self._get_obs(i) for i, agent in enumerate(self.agents)}
-        return observations, rewards, terminations, truncations, infos
+        return observations, rewards, found
     
     ### first version of reward function
     ### if agent reaches the target, all agents get a reward of 1
     def reward_v0(self):
         rewards = {agent: 0 for agent in self.agents}
+        found = False
         for i, agent in enumerate(self.agents):
             if np.array_equal(self._agent_locations[i], self._target_location):
                 rewards[agent] = 1
-                self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-                while any(np.array_equal(self._target_location, loc) for loc in self._agent_locations):
-                    self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-        return rewards
+                found = True
+
+        return rewards,found
     ### second version of reward function
     ### if agent reaches the target, all agents get a reward of 100
     ### if agent is on a trail, it subtracts 1 from the reward pool
     ### if agent is not on a trail, it adds 1 to the reward pool
     def reward_v1(self):
         reward_pool = 0
-        agents_on_target = False
+        found = False
 
         for loc in self._agent_locations:
             # Check if agent is on a trail
@@ -168,12 +191,12 @@ class GridTrailParallelEnv(ParallelEnv):
 
             # Check if agent is on the target
             if np.array_equal(loc, self._target_location):
-                agents_on_target = True
+                found = True
 
-        if agents_on_target:
-            return {agent: 100 for agent in self.agents}
+        if found:
+            return {agent: 100 for agent in self.agents},found
         else:
-            return {agent: reward_pool for agent in self.agents}
+            return {agent: reward_pool for agent in self.agents},found
         
     ### third version of reward function
     ### if agent reaches the target, it gets a reward of 100
@@ -181,7 +204,7 @@ class GridTrailParallelEnv(ParallelEnv):
     ### if agent is not on a trail, it adds 1 to the agent's reward
     def reward_v2(self):
         rewards = {agent: 0 for agent in self.agents}
-
+        found = False
         for i, agent in enumerate(self.agents):
             loc = self._agent_locations[i]
 
@@ -195,11 +218,15 @@ class GridTrailParallelEnv(ParallelEnv):
             # Check if agent is on the target
             if np.array_equal(loc, self._target_location):
                 rewards[agent] += 100
-                self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
-                while any(np.array_equal(self._target_location, loc) for loc in self._agent_locations):
-                    self._target_location = self.np_random.integers(0, self.size, size=2, dtype=int)
+                found = True
 
-        return rewards
+        return rewards,found
+    
+    def get_coverage_percentage(self):
+        """Get current coverage percentage"""
+        total_cells = self.size * self.size
+        covered_cells = np.sum(self.area_covered > 0)
+        return (covered_cells / total_cells) * 100
     
     #write reward lists to csv
     def write_rewards(self, path):
@@ -215,6 +242,13 @@ class GridTrailParallelEnv(ParallelEnv):
             for t in range(num_timesteps):
                 row = [self.rewards[agent][t] for agent in self.agents]
                 writer.writerow(row)
+    #write coverage percentage list to csv
+    def write_coverage(self, path,coverage_list):
+        with open(path, "w+", newline="") as f:
+            writer = csv.writer(f)
+            writer.writerow(["Coverage"])
+            for coverage in coverage_list:
+                writer.writerow([coverage])
 
 
     def render(self):
