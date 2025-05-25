@@ -8,14 +8,14 @@ gamma = 0.99
 epsilon = 1.0
 epsilon_min = 0.05
 epsilon_decay = 0.995
-episodes = 1
+episodes = 11
 batch_size = 64
 memory_size = 20000
 max_steps = 100
 
 
 env_params = {
-    'render_mode': "human",
+    'render_mode': None,
     'size': size,
     'num_agents': num_agents,
     'flatten_observations': True
@@ -48,15 +48,24 @@ for reward_function in ['v0', 'v1', 'v2']:
     
     coverage = []
     strawberry = []
+    reward_dict = {}
+    for agent in env.agents:
+        reward_dict[agent] = []
     for episode in range(episodes):
-        evaluator.evaluate()
+
+        ep_rewards = evaluator.evaluate()
+        for agent in env.agents:
+            reward_dict[agent].append(ep_rewards[agent])
+
         observations,cov_pct,found = env.reset()
         coverage.append(cov_pct)
         strawberry.append(found)
+        for agent in env.agents:
+            reward_dict[agent].append(ep_rewards[agent])
         if episode % 10 == 0:
             print(f"Episode {episode+1}/{episodes} - Coverage: {cov_pct}, Found: {found}")
             env.write_rewards(f'evaluation_results/{reward_function}/rewards_{reward_function}.csv')
-            env.write_coverage(f'evaluation_results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage)
+            env.write_stats(f'evaluation_results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
 
 
     # env.write_rewards(f'evaluation_results/rewards_{reward_function}.csv')

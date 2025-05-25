@@ -96,6 +96,11 @@ class Trainer():
         # Reset the environment and flatten the initial observations
         observations,cov_pct,found = self.env.reset()
 
+        # sum of the rewards for each agent for the episode
+        reward_dict = {}
+        for agent in self.env.agents:
+            reward_dict[agent] = 0
+
         observations = {
             agent: observations[agent]
             for agent in self.env.agents
@@ -115,6 +120,7 @@ class Trainer():
 
             # Step the environment
             observations, rewards, found = self.env.step(actions) # overwrite observations
+
 
             observations = {
                 agent:  observations[agent] 
@@ -136,8 +142,12 @@ class Trainer():
 
             # print(f"steps: {steps}")
 
+            for agent in self.env.agents:
+                reward_dict[agent] += rewards[agent]
+
             steps += 1
 
+        return reward_dict
 
     # Save models for each agent on folder at path
     def save_models(self,path):
@@ -168,6 +178,9 @@ class Evaluator():
             agent: observations[agent]
             for agent in self.env.agents
         }
+        reward_dict = {}
+        for agent in self.env.agents:
+            reward_dict[agent] = 0
 
         while not found and steps < self.max_steps:
             actions = {
@@ -189,9 +202,10 @@ class Evaluator():
 
             for agent in self.env.agents:
                 self.rewards[agent].append(rewards[agent])
+                reward_dict[agent] += rewards[agent]
             steps += 1
 
-        return self.rewards
+        return reward_dict
 
 
 def build_model(input_dim, output_dim, learning_rate=0.001):

@@ -242,14 +242,17 @@ class GridTrailParallelEnv(ParallelEnv):
             for t in range(num_timesteps):
                 row = [self.rewards[agent][t] for agent in self.agents]
                 writer.writerow(row)
-    #write coverage percentage list to csv
-    def write_coverage(self, path,coverage_list):
+
+    #write coverage percentage and found list to csv
+    def write_stats(self, path,coverage_list,found_list,reward_dict):
         with open(path, "w+", newline="") as f:
             writer = csv.writer(f)
-            writer.writerow(["Coverage"])
-            for coverage in coverage_list:
-                writer.writerow([coverage])
-
+            # headers = ["coverage", "found"] @ reward_dict.keys()
+            headers = ["coverage", "found"] + list(reward_dict.keys())
+            writer.writerow(headers)
+            for i in range(len(coverage_list)):
+                row = [round(coverage_list[i],4), found_list[i]] + [reward_dict[agent][i] for agent in reward_dict.keys()]
+                writer.writerow(row)
 
     def render(self):
         if self.render_mode != "human":

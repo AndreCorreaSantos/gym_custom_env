@@ -51,13 +51,20 @@ for reward_function in ['v0', 'v1', 'v2']:
     trainer = Trainer(env=env, learners=learners, max_steps=max_steps)
     coverage = []
     strawberry = []
+    reward_dict = {}
+    for agent in env.agents:
+        reward_dict[agent] = []
     for episode in range(episodes):
-        print(f"\n--- Episode {episode+1}/{episodes} ---")
-        trainer.train()
+
+        ep_rewards = trainer.train()
+        for agent in env.agents:
+            reward_dict[agent].append(ep_rewards[agent])
+        print(f"Episode {episode+1}/{episodes} - Summed Rewards: {reward_dict}")
+
         observations,cov_pct,found = env.reset()
         coverage.append(cov_pct)
         strawberry.append(found)
         if episode % 10 == 0:
             env.write_rewards(f'results/{reward_function}/rewards_{reward_function}.csv')
-            env.write_coverage(f'results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage)
+            env.write_stats(f'results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
             trainer.save_models(f'models/{reward_function}/')
