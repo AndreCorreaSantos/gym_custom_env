@@ -18,7 +18,7 @@ max_steps = 100
 os.makedirs('evaluation_results', exist_ok=True)
 
 for reward_function in ['v0', 'v1', 'v2']:
-    env = GridTrailParallelEnv(render_mode=None, size=size, num_agents=num_agents,
+    env = GridTrailParallelEnv(render_mode="human", size=size, num_agents=num_agents,
                                flatten_observations=True, reward=reward_function)
     env.reset()
 

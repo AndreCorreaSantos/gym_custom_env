@@ -184,6 +184,10 @@ class Evaluator():
                     for agent in self.env.agents
                 }
                 observations, rewards, terminations, truncations, infos = self.env.step(actions)
+                for agent in self.env.agents:
+                    print(f"Agent: {agent} - Observation: {observations[agent]}")
+                if self.env.render_mode == "human":
+                    self.env.render()
                 observations = {
                     agent:  observations[agent] 
                     for agent in self.env.agents
