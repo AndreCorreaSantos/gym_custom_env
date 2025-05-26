@@ -230,9 +230,9 @@ class GridTrailParallelEnv(ParallelEnv):
     
     #write reward lists to csv
     def write_rewards(self, path):
-
+        print(f"Writing rewards to {path}")
         num_timesteps = len(self.rewards[self.agents[0]])
-        print(num_timesteps)
+        # print(num_timesteps)
 
         with open(path, "w+", newline="") as f:
             writer = csv.writer(f)
