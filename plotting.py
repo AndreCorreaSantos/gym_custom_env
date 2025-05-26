@@ -2,6 +2,11 @@
 import seaborn as sns
 import matplotlib.pyplot as plt 
 
+def plot_coverage(stats):
+    sns.set_theme(style="darkgrid", palette="colorblind", font_scale=1.2)
+    series = stats["coverage"]
+    print(se)
+
 def plot_stats(train_stats, window_size=3):
     sns.set_theme(style="darkgrid", palette="colorblind", font_scale=1.2)
 
