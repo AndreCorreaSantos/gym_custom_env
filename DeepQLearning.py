@@ -34,10 +34,12 @@ class DeepQLearning:
 
     def select_action(self, agent, state):
         # print(f"state shape action: {state.shape}")
+        print(f"epsilon {self.epsilon}")
         if np.random.rand() < self.epsilon:
             return self.env.action_space(agent).sample()
         
-        state = np.expand_dims(state, axis=0) 
+        state = np.expand_dims(state, axis=0)
+
         # Use predict with explicit cleanup
         with keras.utils.custom_object_scope({}):
             action = self.model.predict(state, verbose=0)
@@ -300,7 +302,7 @@ def build_model(input_dim, output_dim, learning_rate=0.001):
     return model
 
 
-def build_agents(env, gamma=0.99, epsilon=1.0, epsilon_min=0.05, epsilon_decay=0.995,batch_size=64, memory_size=20000):
+def build_agents(env, gamma, epsilon, epsilon_min, epsilon_decay,batch_size=64, memory_size=20000):
     sample_agent = env.agents[0]
     input_dim = np.prod(env.observation_space(sample_agent).shape)
     n_actions = env.action_space(sample_agent).n

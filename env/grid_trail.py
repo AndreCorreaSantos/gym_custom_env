@@ -169,10 +169,12 @@ class GridTrailParallelEnv(ParallelEnv):
         found = False
         for i, agent in enumerate(self.agents):
             if np.array_equal(self._agent_locations[i], self._target_location):
-                rewards[agent] = 1
+                rewards = {agent: 1 for agent in self.agents}  # All agents get 1
                 found = True
+                break 
 
-        return rewards,found
+        return rewards, found
+
     ### second version of reward function
     ### if agent reaches the target, all agents get a reward of 100
     ### if agent is on a trail, it subtracts 1 from the reward pool

@@ -50,10 +50,11 @@ for reward_function in ['v0', 'v1', 'v2']:
     coverage = []
     strawberry = []
     reward_dict = {}
+    
     for agent in env.agents:
         reward_dict[agent] = []
-    for episode in range(episodes):
 
+    for episode in range(episodes):
         ep_rewards = trainer.train()
         for agent in env.agents:
             reward_dict[agent].append(ep_rewards[agent])

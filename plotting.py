@@ -2,10 +2,50 @@
 import seaborn as sns
 import matplotlib.pyplot as plt 
 
-def plot_coverage(stats):
+def plot_metrics(train_stats):
     sns.set_theme(style="darkgrid", palette="colorblind", font_scale=1.2)
-    series = stats["coverage"]
-    print(se)
+    
+    # Calculate metrics for each version
+    avg_coverage = {}
+    found_percentage = {}
+    
+    for rfunc, df in train_stats.items():
+        avg_coverage[rfunc] = df['coverage'].mean()
+        found_percentage[rfunc] = (df['found'].sum() / len(df)) * 100
+    
+    versions = list(avg_coverage.keys())
+    
+    # Create subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(16, 6))
+    
+    # Coverage plot
+    coverage_values = list(avg_coverage.values())
+    bars1 = ax1.bar(versions, coverage_values, alpha=0.8, edgecolor='black', linewidth=1)
+    
+    for bar, value in zip(bars1, coverage_values):
+        ax1.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                f'{value:.2f}%', ha='center', va='bottom', fontweight='bold')
+    
+    ax1.set_xlabel('Version')
+    ax1.set_ylabel('Average Coverage (%)')
+    ax1.set_title('Average Coverage by Version')
+    ax1.grid(True, linestyle='--', alpha=0.6, axis='y')
+    
+    # Found plot
+    found_values = list(found_percentage.values())
+    bars2 = ax2.bar(versions, found_values, alpha=0.8, edgecolor='black', linewidth=1, color='orange')
+    
+    for bar, value in zip(bars2, found_values):
+        ax2.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.1,
+                f'{value:.2f}%', ha='center', va='bottom', fontweight='bold')
+    
+    ax2.set_xlabel('Version')
+    ax2.set_ylabel('Found Success Rate (%)')
+    ax2.set_title('Success Rate (Found=True) by Version')
+    ax2.grid(True, linestyle='--', alpha=0.6, axis='y')
+    
+    plt.tight_layout()
+    plt.show()
 
 def plot_stats(train_stats, window_size=3):
     sns.set_theme(style="darkgrid", palette="colorblind", font_scale=1.2)
