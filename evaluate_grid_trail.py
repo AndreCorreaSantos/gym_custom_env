@@ -9,7 +9,7 @@ gamma = 0.99
 epsilon = 0.0 # EPSILON IS SET TO 0.0 FOR EVALUATION
 epsilon_min = 0.05
 epsilon_decay = 0.995
-episodes = 5
+episodes = 4
 batch_size = 64
 memory_size = 20000
 max_steps = 100
@@ -65,9 +65,12 @@ for reward_function in ['v0', 'v1', 'v2']:
             reward_dict[agent].append(ep_rewards[agent])
 
         print(f"Episode {episode+1}/{episodes} - Coverage: {cov_pct}, Found: {found}")
-        if episode % 10 == 0:
+        if episode % 2 == 0:
             env.write_rewards(f'evaluation_results/{reward_function}/rewards_{reward_function}.csv')
             env.write_stats(f'evaluation_results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
 
+
+    env.write_rewards(f'evaluation_results/{reward_function}/rewards_{reward_function}.csv')
+    env.write_stats(f'evaluation_results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
 
     # env.write_rewards(f'evaluation_results/rewards_{reward_function}.csv')

@@ -8,12 +8,19 @@ num_agents = 5
 gamma = 0.99
 epsilon = 1.0
 epsilon_min = 0.05
-epsilon_decay = 0.9995
 episodes = 10
+
+
+
 batch_size = 64
 memory_size = 20000
 max_steps = 100
 
+target_episode = int(episodes * 0.8)  # 80% point
+total_steps = target_episode * max_steps
+epsilon_decay = (epsilon_min / epsilon) ** (1 / total_steps)
+
+print(f'Epsilon Decay: {epsilon_decay:.6f}')
 net_params = {
     'gamma': gamma,
     'epsilon': epsilon,
@@ -55,18 +62,26 @@ for reward_function in ['v0', 'v1', 'v2']:
         reward_dict[agent] = []
 
     for episode in range(episodes):
+
+        print(f'Epsilon: {trainer.learners["agent_0"].epsilon:.4f}')
         ep_rewards,found,cov_pct = trainer.train()
 
         for agent in env.agents:
             reward_dict[agent].append(ep_rewards[agent])
         print(f'Episode {episode+1}/{episodes} - Reward: {ep_rewards} - Found: {found} - Coverage: {cov_pct}')
+        #print epsilon
         
         coverage.append(cov_pct)
         strawberry.append(found)
-        # if episode % 50 == 0:
-        #     env.write_rewards(f'results/{reward_function}/rewards_{reward_function}.csv')
-        #     env.write_stats(f'results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
-        #     trainer.save_models(f'models/{reward_function}/')
+        if episode % 5 == 0:
+            env.write_rewards(f'results/{reward_function}/rewards_{reward_function}.csv')
+            env.write_stats(f'results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
+            trainer.save_models(f'models/{reward_function}/')
+
+    
+    env.write_rewards(f'results/{reward_function}/rewards_{reward_function}.csv')
+    env.write_stats(f'results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
+    trainer.save_models(f'models/{reward_function}/')
 
 ### --- Evaluate all agents ---
 
