@@ -7,7 +7,7 @@ size = 40
 num_agents = 5
 gamma = 0.99
 epsilon = 0.0  # EPSILON IS SET TO 0.0 FOR EVALUATION
-epsilon_min = 0.05
+epsilon_min = 0.00
 epsilon_decay = 0.995
 episodes = 1
 batch_size = 64
@@ -48,6 +48,7 @@ for reward_function in ['v0', 'v1', 'v2']:
     for episode in range(episodes):
 
         ep_rewards = evaluator.evaluate()
-        observations,cov_pct,found = env.reset()
+        # observations,cov_pct,found = env.reset()
+        env.reset()
 
     # env.write_rewards(f'evaluation_results/rewards_{reward_function}.csv')

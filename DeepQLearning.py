@@ -282,6 +282,7 @@ class Evaluator():
                 self.env.render()
 
             for agent in self.env.agents:
+                print(f"Evaluating agent: {agent} Reward: {rewards[agent]}")
                 self.rewards[agent].append(rewards[agent])
                 reward_dict[agent] += rewards[agent]
             steps += 1
