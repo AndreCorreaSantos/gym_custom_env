@@ -73,7 +73,7 @@ def plot_stats(train_stats, window_size=3):
             linewidth=2
         )
 
-        plt.xlabel('Step')
+        plt.xlabel('Episode')
         plt.ylabel('Reward')
         plt.title(f'Rewards/Episode - {rfunc}')
         plt.grid(True, linestyle='--', alpha=0.6)

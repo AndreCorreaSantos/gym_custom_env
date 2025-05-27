@@ -8,7 +8,7 @@ num_agents = 5
 gamma = 0.99
 epsilon = 1.0
 epsilon_min = 0.05
-episodes = 10
+episodes = 200
 
 
 
