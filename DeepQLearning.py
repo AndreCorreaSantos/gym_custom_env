@@ -34,7 +34,6 @@ class DeepQLearning:
 
     def select_action(self, agent, state):
         # print(f"state shape action: {state.shape}")
-        print(f"epsilon {self.epsilon}")
         if np.random.rand() < self.epsilon:
             return self.env.action_space(agent).sample()
         
@@ -118,8 +117,6 @@ class Trainer():
 
     # Train agents in the environment for AN EPISODE
     def train(self):
-        steps = 0
-        found = False 
         
         # Track memory usage
         if self.initial_memory is None:
@@ -129,7 +126,7 @@ class Trainer():
         memory_growth = current_memory - self.initial_memory
 
         # Reset the environment and flatten the initial observations
-        observations,cov_pct,found = self.env.reset()
+        observations = self.env.reset()
 
         # sum of the rewards for each agent for the episode
         reward_dict = {}
@@ -141,6 +138,9 @@ class Trainer():
             for agent in self.env.agents
         }
 
+        steps = 0
+        found = False 
+        cov_pct = 0.0
         while not found and steps < self.max_steps:
 
             # Select actions for each agent using reshaped input
@@ -153,7 +153,7 @@ class Trainer():
             }
 
             # Step the environment
-            observations, rewards, found = self.env.step(actions) # overwrite observations
+            observations, rewards, found, cov_pct = self.env.step(actions) # overwrite observations
 
             observations = {
                 agent:  observations[agent] 
@@ -173,7 +173,6 @@ class Trainer():
                 )
                 self.learners[agent].experience_replay()
 
-            # print(f"steps: {steps}")
 
             for agent in self.env.agents:
                 reward_dict[agent] += rewards[agent]
@@ -209,7 +208,7 @@ class Trainer():
             
             gc.collect()
 
-        return reward_dict
+        return reward_dict,found,cov_pct
 
     def force_cleanup(self):
         """Force aggressive memory cleanup"""
@@ -252,8 +251,7 @@ class Evaluator():
 
     # Evaluate agents in the environment for one episode 
     def evaluate(self):
-        steps = 0
-        observations, cov_pct, found = self.env.reset() 
+        observations = self.env.reset() 
 
         observations = {
             agent: observations[agent]
@@ -263,6 +261,9 @@ class Evaluator():
         for agent in self.env.agents:
             reward_dict[agent] = 0
 
+        steps = 0
+        cov_pct = 0.0
+        found = False
         while not found and steps < self.max_steps:
             actions = {
                 agent: self.learners[agent].select_action(
@@ -271,8 +272,7 @@ class Evaluator():
                 )
                 for agent in self.env.agents
             }
-            observations, rewards, found = self.env.step(actions)
-
+            observations, rewards, found, cov_pct = self.env.step(actions)
             observations = {
                 agent: observations[agent]
                 for agent in self.env.agents
@@ -289,8 +289,9 @@ class Evaluator():
         # Cleanup after evaluation episode
         del observations, actions, rewards
         gc.collect()
+        keras.backend.clear_session()
 
-        return reward_dict
+        return reward_dict, found, cov_pct
 
 
 def build_model(input_dim, output_dim, learning_rate=0.001):

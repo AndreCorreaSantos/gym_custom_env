@@ -2,13 +2,14 @@ from DeepQLearning import Evaluator, build_agents
 import os
 from env.grid_trail import GridTrailParallelEnv
 
+
 size = 40
 num_agents = 5
 gamma = 0.99
-epsilon =0.0 # EPSILON IS SET TO 0.0 FOR EVALUATION
+epsilon = 0.0 # EPSILON IS SET TO 0.0 FOR EVALUATION
 epsilon_min = 0.05
 epsilon_decay = 0.995
-episodes = 250
+episodes = 5
 batch_size = 64
 memory_size = 20000
 max_steps = 100
@@ -53,17 +54,18 @@ for reward_function in ['v0', 'v1', 'v2']:
         reward_dict[agent] = []
     for episode in range(episodes):
 
-        ep_rewards = evaluator.evaluate()
+        ep_rewards,found,cov_pct = evaluator.evaluate()
+
+        for agent in env.agents:
+            reward_dict[agent].append(ep_rewards[agent])
+        coverage.append(cov_pct)
+        strawberry.append(found)
+
         for agent in env.agents:
             reward_dict[agent].append(ep_rewards[agent])
 
-        observations,cov_pct,found = env.reset()
-        coverage.append(cov_pct)
-        strawberry.append(found)
-        for agent in env.agents:
-            reward_dict[agent].append(ep_rewards[agent])
+        print(f"Episode {episode+1}/{episodes} - Coverage: {cov_pct}, Found: {found}")
         if episode % 10 == 0:
-            print(f"Episode {episode+1}/{episodes} - Coverage: {cov_pct}, Found: {found}")
             env.write_rewards(f'evaluation_results/{reward_function}/rewards_{reward_function}.csv')
             env.write_stats(f'evaluation_results/{reward_function}/coverage_{reward_function}.csv',coverage_list=coverage,found_list=strawberry,reward_dict=reward_dict)
 

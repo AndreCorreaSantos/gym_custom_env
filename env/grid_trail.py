@@ -82,15 +82,18 @@ class GridTrailParallelEnv(ParallelEnv):
         if self.flatten_observations:
             obs = obs.flatten()
         return obs
-
-    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
-        # Calculate coverage percentage before reset
+    
+    def get_cov_pct(self):
+        """Get current coverage percentage"""
         total_cells = self.size * self.size
         covered_cells = np.sum(self.area_covered > 0)
-        coverage_percentage = (covered_cells / total_cells) * 100
-        
-        # Store whether target was found in previous episode
-        found = self.found_target
+        return (covered_cells / total_cells) * 100
+    
+    def get_found(self):
+        """Get whether the target was found in the current episode"""
+        return self.found_target
+
+    def reset(self, seed: Optional[int] = None, options: Optional[dict] = None):
         
         # Reset environment
         self.agents = self.possible_agents[:]
@@ -121,8 +124,7 @@ class GridTrailParallelEnv(ParallelEnv):
 
         observations = {agent: self._get_obs(i) for i, agent in enumerate(self.agents)}
         
-        # Return observations, coverage percentage, and whether target was found
-        return observations, coverage_percentage, found
+        return observations
 
     def step(self, actions):
 
@@ -160,7 +162,7 @@ class GridTrailParallelEnv(ParallelEnv):
             self.rewards[agent].append(rewards[agent])
 
         observations = {agent: self._get_obs(i) for i, agent in enumerate(self.agents)}
-        return observations, rewards, found
+        return observations, rewards, found, self.get_cov_pct()
     
     ### first version of reward function
     ### if agent reaches the target, all agents get a reward of 1
