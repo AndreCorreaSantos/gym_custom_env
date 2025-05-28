@@ -18,9 +18,10 @@ python run_grid_trail_v0.py
 
 https://github.com/user-attachments/assets/7d4ae192-2087-4ebc-96ff-8b5254656e27
 
-./AntHill_Intermediate_presentation.pdf
+[Slides Intermediaria](./presentations/AntHill_Intermediate_presentation.pdf)
 
 ### Apresentação Final:
 
 
-./AntHill_Final.pdf
+
+[Slides Final](./presentations/AntHill_Final.pdf)
